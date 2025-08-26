@@ -1,0 +1,9 @@
+streamlit
+openai
+pdfplumber
+python-docx
+requests
+streamlit-chat
+azure-search-documents
+python-dotenv
+pandas
