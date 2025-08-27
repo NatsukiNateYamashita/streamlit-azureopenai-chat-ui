@@ -334,8 +334,6 @@ class CareerDataParser:
                 # presence_penalty=0.0,
                 model=self.model_name
             )
-            print("DEBUG: OpenAI API call successful")
-            print("DEBUG: Response object type:", type(response))
             
             # レスポンスの基本情報をログ出力
             if hasattr(response, 'choices') and len(response.choices) > 0:
@@ -351,9 +349,6 @@ class CareerDataParser:
 
             # レスポンス内容を取得
             response_content = response.choices[0].message.content
-            print("DEBUG: Response content:", response_content)
-            print("DEBUG: Response content type:", type(response_content))
-            print("DEBUG: Response content length:", len(response_content) if response_content else 0)
             
             if not response_content or response_content.strip() == "":
                 print("DEBUG: Empty response from OpenAI")
