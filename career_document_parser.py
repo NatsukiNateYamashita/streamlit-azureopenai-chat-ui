@@ -9,7 +9,8 @@ import json
 from openai import AzureOpenAI
 import os
 import ssl
-from typing import Dict, List, Optional, Any
+import io
+from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
 from pathlib import Path
 
@@ -27,6 +28,64 @@ os.environ["PYTHONHTTPSVERIFY"] = "0"
 class DocumentTextExtractor:
     """PDF/Docxファイルからテキストと表を抽出するクラス"""
     
+    @staticmethod
+    def extract_from_pdf_memory(pdf_bytes: bytes) -> Dict[str, Any]:
+        """
+        PDFのバイナリデータからテキストと表を抽出（メモリベース）
+        
+        Args:
+            pdf_bytes: PDFファイルのバイナリデータ
+            
+        Returns:
+            Dict: 抽出されたテキストと表データ
+        """
+        extracted_data = {
+            "text": "",
+            "tables": [],
+            "combined_text": "",
+            "metadata": {
+                "pages": 0,
+                "tables_found": 0,
+                "extraction_method": "pdfplumber-memory"
+            }
+        }
+        
+        try:
+            # バイトデータをメモリストリームに変換
+            pdf_stream = io.BytesIO(pdf_bytes)
+            
+            with pdfplumber.open(pdf_stream) as pdf:
+                extracted_data["metadata"]["pages"] = len(pdf.pages)
+                
+                for page_num, page in enumerate(pdf.pages):
+                    # ページテキストを抽出
+                    page_text = page.extract_text()
+                    if page_text:
+                        extracted_data["text"] += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
+                    
+                    # 表を抽出
+                    tables = page.extract_tables()
+                    for table_num, table in enumerate(tables):
+                        if table and any(any(cell for cell in row if cell) for row in table):
+                            formatted_table = DocumentTextExtractor._format_table_as_text(table, page_num + 1, table_num + 1)
+                            extracted_data["tables"].append({
+                                "page": page_num + 1,
+                                "table_num": table_num + 1,
+                                "data": table,
+                                "formatted_text": formatted_table
+                            })
+                            extracted_data["metadata"]["tables_found"] += 1
+                
+                # テキストと表を統合
+                extracted_data["combined_text"] = DocumentTextExtractor._combine_text_and_tables(
+                    extracted_data["text"], extracted_data["tables"]
+                )
+                
+        except Exception as e:
+            extracted_data["error"] = str(e)
+            
+        return extracted_data
+
     @staticmethod
     def extract_from_pdf(pdf_path: str) -> Dict[str, Any]:
         """
@@ -82,6 +141,71 @@ class DocumentTextExtractor:
             
         return extracted_data
     
+    @staticmethod
+    def extract_from_docx_memory(docx_bytes: bytes) -> Dict[str, Any]:
+        """
+        DOCXのバイナリデータからテキストと表を抽出（メモリベース）
+        
+        Args:
+            docx_bytes: DOCXファイルのバイナリデータ
+            
+        Returns:
+            Dict: 抽出されたテキストと表データ
+        """
+        extracted_data = {
+            "text": "",
+            "tables": [],
+            "combined_text": "",
+            "metadata": {
+                "paragraphs": 0,
+                "tables_found": 0,
+                "extraction_method": "python-docx-memory"
+            }
+        }
+        
+        try:
+            # バイトデータをメモリストリームに変換
+            docx_stream = io.BytesIO(docx_bytes)
+            doc = docx.Document(docx_stream)
+            
+            # 段落テキストを抽出
+            paragraph_texts = []
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():
+                    paragraph_texts.append(paragraph.text)
+            
+            extracted_data["text"] = "\n".join(paragraph_texts)
+            extracted_data["metadata"]["paragraphs"] = len(paragraph_texts)
+            
+            # 表を抽出
+            for table_num, table in enumerate(doc.tables):
+                table_data = []
+                for row in table.rows:
+                    row_data = []
+                    for cell in row.cells:
+                        row_data.append(cell.text.strip())
+                    table_data.append(row_data)
+                
+                if table_data and any(any(cell for cell in row if cell) for row in table_data):
+                    formatted_table = DocumentTextExtractor._format_table_as_text(table_data, 1, table_num + 1)
+                    extracted_data["tables"].append({
+                        "page": 1,
+                        "table_num": table_num + 1,
+                        "data": table_data,
+                        "formatted_text": formatted_table
+                    })
+                    extracted_data["metadata"]["tables_found"] += 1
+            
+            # テキストと表を統合
+            extracted_data["combined_text"] = DocumentTextExtractor._combine_text_and_tables(
+                extracted_data["text"], extracted_data["tables"]
+            )
+            
+        except Exception as e:
+            extracted_data["error"] = str(e)
+            
+        return extracted_data
+
     @staticmethod
     def extract_from_docx(docx_path: str) -> Dict[str, Any]:
         """
@@ -237,6 +361,59 @@ class DocumentTextExtractor:
         for table in tables:
             combined += table["formatted_text"]
         return combined
+    
+    @staticmethod
+    def extract_text(file_input: Union[str, bytes], file_extension: str, use_memory: bool = False) -> Dict[str, Any]:
+        """
+        ファイルからテキストを抽出する統合メソッド
+        
+        Args:
+            file_input: ファイルパス（str）またはバイナリデータ（bytes）
+            file_extension: ファイル拡張子（.pdf, .docx, .doc）
+            use_memory: メモリベース処理を使用するかどうか
+            
+        Returns:
+            Dict: 抽出されたテキストと表データ
+        """
+        file_extension = file_extension.lower()
+        
+        if use_memory:
+            # メモリベース処理
+            if not isinstance(file_input, bytes):
+                raise ValueError("メモリベース処理にはbytes型のデータが必要です")
+                
+            if file_extension == '.pdf':
+                return DocumentTextExtractor.extract_from_pdf_memory(file_input)
+            elif file_extension in ['.docx', '.doc']:
+                return DocumentTextExtractor.extract_from_docx_memory(file_input)
+            else:
+                return {
+                    "text": "",
+                    "tables": [],
+                    "combined_text": "",
+                    "metadata": {"extraction_method": "unsupported"},
+                    "error": f"サポートされていないファイル形式: {file_extension}"
+                }
+        else:
+            # ファイルパスベース処理（後方互換性）
+            if not isinstance(file_input, str):
+                raise ValueError("ファイルパスベース処理にはstr型のパスが必要です")
+                
+            if file_extension == '.pdf':
+                return DocumentTextExtractor.extract_from_pdf(file_input)
+            elif file_extension == '.docx':
+                return DocumentTextExtractor.extract_from_docx(file_input)
+            elif file_extension == '.doc':
+                extractor = DocumentTextExtractor()
+                return extractor.extract_from_doc(file_input)
+            else:
+                return {
+                    "text": "",
+                    "tables": [],
+                    "combined_text": "",
+                    "metadata": {"extraction_method": "unsupported"},
+                    "error": f"サポートされていないファイル形式: {file_extension}"
+                }
 
 
 class CareerDataParser:
@@ -477,6 +654,48 @@ class CareerDocumentProcessor:
                 "file_path": str(file_path),
                 "file_size": file_path.stat().st_size,
                 "file_type": file_path.suffix.lower()
+            },
+            "extraction_info": extracted_data["metadata"],
+            "output": output,
+            "raw_text": extracted_data["combined_text"][:1000] + "..." if len(extracted_data["combined_text"]) > 1000 else extracted_data["combined_text"]
+        }
+        
+        return result
+    
+    def process_document_memory(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
+        """
+        メモリ上のファイルデータを処理して職歴データを抽出
+        
+        Args:
+            file_bytes: ファイルのバイナリデータ
+            filename: ファイル名（拡張子判定用）
+            
+        Returns:
+            Dict: 解析結果
+        """
+        # ファイル拡張子を取得
+        file_extension = Path(filename).suffix.lower()
+        
+        # メモリベースでテキスト抽出
+        extracted_data = DocumentTextExtractor.extract_text(
+            file_input=file_bytes,
+            file_extension=file_extension,
+            use_memory=True
+        )
+        
+        if "error" in extracted_data:
+            raise Exception(f"テキスト抽出エラー: {extracted_data['error']}")
+        
+        # AI解析で職歴データを解析
+        output = self.career_parser.parse_career_with_ai(extracted_data["combined_text"])
+        
+        # 結果をまとめて返す
+        result = {
+            "file_info": {
+                "filename": filename,
+                "file_size": len(file_bytes),
+                "file_type": file_extension,
+                "processing_method": "memory-based"
             },
             "extraction_info": extracted_data["metadata"],
             "output": output,

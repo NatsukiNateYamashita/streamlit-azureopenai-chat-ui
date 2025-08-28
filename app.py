@@ -314,15 +314,6 @@ with st.expander("⚙️ System Prompt設定", expanded=False):
             st.rerun()
         else:
             st.warning("追加するファイルがありません。")
-    # ダウンロードボタン       
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    st.download_button(
-        label="📥 system promptをダウンロード",
-        data=json.dumps(st.session_state['system_prompt'], indent=2, ensure_ascii=False).encode('utf-8'),
-        file_name= f"system_prompt_{timestamp}.json",
-        mime="application/json",
-        key="download_system_prompt"
-    )
 
 # ファイル添付（折りたたみ可能）
 with st.expander("📎 ファイル添付（PDF, DOCXのみ）",  expanded=st.session_state.get('file_expander_expanded', False)):
@@ -336,18 +327,13 @@ with st.expander("📎 ファイル添付（PDF, DOCXのみ）",  expanded=st.se
             
             with st.spinner(f'ファイル "{uploaded_file.name}" を解析中...'):
                 try:
-                    # 一時ファイル保存
-                    temp_path = f"./temp_{uploaded_file.name}"
-                    with open(temp_path, 'wb') as f:
-                        f.write(uploaded_file.getbuffer())
+                    # メモリベース処理（一時ファイル不要）
+                    file_bytes = uploaded_file.getvalue()  # バイナリデータを取得
                     
-                    # ファイル解析
+                    # ファイル解析（メモリベース）
                     processor = CareerDocumentProcessor(API_KEY)
-                    result = processor.process_document(temp_path)
+                    result = processor.process_document_memory(file_bytes, uploaded_file.name)
                     st.session_state['file_text'] = result['raw_text']
-                    
-                    # 一時ファイルを削除
-                    os.remove(temp_path)
                     
                     st.success(f'ファイル "{uploaded_file.name}" の解析が完了しました！')
                     
