@@ -7,3 +7,4 @@ streamlit-chat
 azure-search-documents
 python-dotenv
 pandas
+cryptography==43.0.3
