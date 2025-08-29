@@ -249,6 +249,14 @@ with st.expander("⚙️ System Prompt設定", expanded=False):
         accept_multiple_files=True,
         key='system_files'
     )
+    ### DEBUG ###
+    st.write("DEBUG: uploaded_system_files =", uploaded_system_files)
+
+    if uploaded_system_files is not None:
+        for uploaded_file in uploaded_system_files:
+            st.write("✅ Uploaded:", uploaded_file.name, uploaded_file.size)
+            st.download_button("確認ダウンロード", uploaded_file.getvalue(), file_name=uploaded_file.name)
+    ### DEBUG ###   
     # アップロードされたファイルの処理
     if uploaded_system_files:
         for uploaded_file in uploaded_system_files:
@@ -318,7 +326,15 @@ with st.expander("⚙️ System Prompt設定", expanded=False):
 # ファイル添付（折りたたみ可能）
 with st.expander("📎 ファイル添付（PDF, DOCXのみ）",  expanded=st.session_state.get('file_expander_expanded', False)):
     uploaded_file = st.file_uploader('ファイルを選択してください', type=['pdf', 'docx'])
+    
+    ### DEBUG ###
+    st.write("DEBUG: uploaded_file =", uploaded_file)
 
+    if uploaded_file is not None:
+        st.write("✅ Uploaded:", uploaded_file.name, uploaded_file.size)
+        st.download_button("確認ダウンロード", uploaded_file.getvalue(), file_name=uploaded_file.name)
+    ### DEBUG ###    
+        
     # ファイルが添付された場合の自動解析処理
     if uploaded_file:
         if 'uploaded_file_name' not in st.session_state or st.session_state['uploaded_file_name'] != uploaded_file.name:

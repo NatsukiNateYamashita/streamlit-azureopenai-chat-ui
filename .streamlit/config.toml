@@ -1,6 +1,8 @@
 [server]
 enableCORS = false
 enableXsrfProtection = false
+maxUploadSize = 200
+enableWebsocketCompression = false  # ← 無効化して挙動を確認
 
 [browser]
 gatherUsageStats = false
