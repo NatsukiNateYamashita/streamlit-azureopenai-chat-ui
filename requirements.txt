@@ -1,11 +1,11 @@
+protobuf>=4.21.0
 streamlit
+streamlit-chat
+cryptography
+cffi
 openai
 pdfplumber
 python-docx
 requests
-streamlit-chat
-azure-search-documents
 python-dotenv
 pandas
-cryptography==43.0.3
-

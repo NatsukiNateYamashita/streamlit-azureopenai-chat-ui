@@ -12,6 +12,7 @@ import pandas as pd
 import csv
 from datetime import datetime
 import traceback
+import google.protobuf
 
 
 # Azure Web App Service環境の判定
@@ -83,6 +84,11 @@ logger.info("Streamlit App Starting")
 logger.info(f"Environment: {'Azure Web App' if is_azure_environment() else 'Local'}")
 logger.info(f"Python Version: {sys.version}")
 logger.info(f"Working Directory: {os.getcwd()}")
+
+# ライブラリバージョン情報の記録
+logger.info(f"STREAMLIT = {st.__version__}")
+logger.info(f"PROTOBUF  = {getattr(google.protobuf, '__version__', 'unknown')}")
+
 if is_azure_environment():
     logger.info(f"Site Name: {os.environ.get('WEBSITE_SITE_NAME')}")
     logger.info(f"Resource Group: {os.environ.get('WEBSITE_RESOURCE_GROUP', 'N/A')}")
